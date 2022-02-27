@@ -1,15 +1,23 @@
+from cProfile import label
 import os
 import torch
 from torch.nn import Module, Sequential, Linear, ReLU, BatchNorm1d, Sigmoid, Dropout, Conv1d
 from torch.utils.data import DataLoader, random_split
 from torchvision import datasets, transforms
 from dataset import featureDataset
+import matplotlib.pyplot as plt
 
 
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 BATCH_SIZE = 60
 EPOCH = 30
+
+y_loss = []
+y_acc = []
+x_epoch = []
+
+
 # class NeuralNetwork(Module):
 #     def __init__(self):
 #         super(NeuralNetwork, self).__init__()
@@ -88,13 +96,17 @@ def train_one_epoch(model):
             total_correct += correct 
 
     # accuracy = total_correct/ 3000
-    accuracy = total_correct/ 2400 
+    accuracy = total_correct/ 2400
+
 
     print(f'loss is {running_loss}, accuracy is {accuracy*100}%')
+    y_loss.append(running_loss)
+    y_acc.append(accuracy.item()*100)   
     return last_loss
 
 
 for epoch in range(EPOCH):
+    x_epoch.append(epoch)
     avg_loss = train_one_epoch(model)
 
 path = 'weight.pt'
@@ -102,15 +114,28 @@ torch.save(model.state_dict(), path)
 
 
 test_correct = 0
+running_test_loss = 0
 for i, data in enumerate(test_loader):
     inputs, labels = data
     inputs = inputs.to(device)
     labels = labels.float().to(device)
     model.eval()
     outputs = model(inputs.float()).float()
+    test_loss = loss_fn(outputs, labels)
+    test_loss.backward(retain_graph=True)
+    running_test_loss += test_loss.item()
     pred_y= Sigmoid()(outputs)
     pred_y = pred_y >= 0.5
     correct = torch.sum(labels == pred_y)
     test_correct += correct
+    #print(f'acc is {100*test_correct/600}')
 print(f'total accuracy is {100*test_correct/600}%')
+
+fig = plt.figure(figsize=(4.8, 6.4))
+ax0 = fig.add_subplot(title="Model Loss and Accuracy per Epoch")
+ax0.plot(x_epoch, y_loss, 'b', label='loss')
+ax0.plot(x_epoch, y_acc, 'r', label='accuracy')
+ax0.legend()
+fig.savefig(os.path.join('./results', 'plot.jpg'))
+
 
