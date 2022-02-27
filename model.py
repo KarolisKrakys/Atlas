@@ -56,8 +56,8 @@ model = NeuralNetwork().to(device)
 dataset = featureDataset()
 train_set, test_set = random_split(dataset, [2400,600])
 
-training_loader = DataLoader(dataset, batch_size=BATCH_SIZE)
-test_loader = DataLoader(test_set, batch_size=64)
+training_loader = DataLoader(train_set, batch_size=BATCH_SIZE)
+test_loader = DataLoader(test_set, batch_size=BATCH_SIZE)
 
 loss_fn = torch.nn.BCEWithLogitsLoss()
 # optimizer = torch.optim.Adam(model.parameters(), lr=0.000001, weight_decay=1e-9)
@@ -87,7 +87,8 @@ def train_one_epoch(model):
             correct = torch.sum(labels == pred_y)
             total_correct += correct 
 
-    accuracy = total_correct/ 3000
+    # accuracy = total_correct/ 3000
+    accuracy = total_correct/ 2400 
 
     print(f'loss is {running_loss}, accuracy is {accuracy*100}%')
     return last_loss
@@ -98,3 +99,18 @@ for epoch in range(EPOCH):
 
 path = 'weight.pt'
 torch.save(model.state_dict(), path)
+
+
+test_correct = 0
+for i, data in enumerate(test_loader):
+    inputs, labels = data
+    inputs = inputs.to(device)
+    labels = labels.float().to(device)
+    model.eval()
+    outputs = model(inputs.float()).float()
+    pred_y= Sigmoid()(outputs)
+    pred_y = pred_y >= 0.5
+    correct = torch.sum(labels == pred_y)
+    test_correct += correct
+print(f'total accuracy is {100*test_correct/600}%')
+
