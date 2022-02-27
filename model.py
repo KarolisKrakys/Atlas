@@ -1,6 +1,6 @@
 import os
 import torch
-from torch.nn import Module, Sequential, Linear, ReLU, BatchNorm1d
+from torch.nn import Module, Sequential, Linear, ReLU, BatchNorm1d, Sigmoid, Dropout, Conv1d
 from torch.utils.data import DataLoader, random_split
 from torchvision import datasets, transforms
 from dataset import featureDataset
@@ -8,111 +8,93 @@ from dataset import featureDataset
 
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-
+BATCH_SIZE = 60
+EPOCH = 30
+# class NeuralNetwork(Module):
+#     def __init__(self):
+#         super(NeuralNetwork, self).__init__()
+#         self.linear_relu_stack = Sequential(
+#             BatchNorm1d(48, affine=False),
+#             Linear(48, 1024),
+#             ReLU(),
+#             Dropout(0.5),
+#             Linear(1024, 1024),
+#             ReLU(),
+#             Linear(1024, 128),
+#             ReLU(),
+#             Linear(128, 1)
+#         )
+#     def forward(self, x):
+#         output = self.linear_relu_stack(x)
+#         return output
 class NeuralNetwork(Module):
     def __init__(self):
         super(NeuralNetwork, self).__init__()
         self.linear_relu_stack = Sequential(
-            BatchNorm1d(48, affine=False),
-            Linear(48, 512),
+            Conv1d(1, 16, 4, stride=3),
             ReLU(),
-            Linear(512, 512),
+            Conv1d(16, 32, 4, stride=3),
+            ReLU()
+        )
+        self.part2  = Sequential(
+            Linear(7680, 128),
             ReLU(),
-            Linear(512, 256),
-            ReLU(),
-            Linear(256, 128),
-            ReLU(),
+            Dropout(0.4),
             Linear(128, 64),
             ReLU(),
-            Linear(64, 1)
+            Linear(64, BATCH_SIZE)
         )
+    
     def forward(self, x):
-        output = self.linear_relu_stack(x)
-        return output
-
+        x = self.linear_relu_stack(x)
+        x = x.flatten()
+        output = self.part2(x)
+        # print(f'output shape is {output.size()}')
+        return output.unsqueeze(1)
+    
 model = NeuralNetwork().to(device)
 dataset = featureDataset()
-# train_set, test_set = random_split(dataset, [2400,600])
+train_set, test_set = random_split(dataset, [2400,600])
 
-training_loader = DataLoader(dataset, batch_size=64)
-# test_loader = DataLoader(test_set, batch_size=64)
+training_loader = DataLoader(dataset, batch_size=BATCH_SIZE)
+test_loader = DataLoader(test_set, batch_size=64)
 
 loss_fn = torch.nn.BCEWithLogitsLoss()
-optimizer = torch.optim.Adam(model.parameters(), lr=0.0001, weight_decay=1e-4)
+# optimizer = torch.optim.Adam(model.parameters(), lr=0.000001, weight_decay=1e-9)
+optimizer = torch.optim.Adam(model.parameters(), lr=0.00001, weight_decay=1e-4)
 
 def train_one_epoch(model):
     running_loss = 0
     last_loss = 0
-    total_wrong = 0
+    total_correct = 0
 
     for i, data in enumerate(training_loader):
         inputs, labels = data
         inputs = inputs.to(device)
-        # print(inputs.size())
         labels = labels.float().to(device)
         optimizer.zero_grad()
-        
-        
 
         outputs = model(inputs.float()).float()
-
         loss = loss_fn(outputs, labels)
         loss.backward(retain_graph=True)
-        # print(outputs)
 
         optimizer.step()
 
-        running_loss += loss.item()
-        # if i % 1000 == 999: 
-        #     last_loss = running_loss / 1000
-        #     # print(' batch: {} loss: {}'.format(i + 1, last_loss))
-        #     running_loss = 0
-    accuracy = total_wrong / 2400
+        with torch.no_grad():
+            running_loss += loss.item()
+            pred_y= Sigmoid()(outputs)
+            pred_y = pred_y >= 0.5
+            correct = torch.sum(labels == pred_y)
+            total_correct += correct 
+
+    accuracy = total_correct/ 3000
 
     print(f'loss is {running_loss}, accuracy is {accuracy*100}%')
     return last_loss
 
-epoch_number = 0
-best_test_loss = 1000000 
 
-for epoch in range(100):
+for epoch in range(EPOCH):
     avg_loss = train_one_epoch(model)
 
-    running_test_loss = 0.0
-    # for i, test_data in enumerate(test_loader):
-    #     test_inputs, test_labels = test_data
-    #     test_outputs = model(test_inputs)
-    #     test_loss = loss_fn(test_outputs, test_labels)
-    #     running_test_loss += test_loss
-    # avg_test_loss = running_test_loss / (i+1)
-
-    # if avg_test_loss < best_test_loss:
-    #     best_test_loss = avg_test_loss
-    #     model_path = 'model_{}'.format(epoch_number)
-    #     torch.save(model.state_dict(), model_path)
-
-    # epoch_number += 1
-
-
-# test_total_loss = 0
-# for i, test_data in enumerate(test_loader):
-#     test_inputs, test_labels = test_data
-#     test_outputs = model(test_inputs)
-#     test_loss = loss_fn(test_outputs, test_labels)
-#     test_total_loss += test_loss
-# model_path = 'model'
-# torch.save(model.state_dict(), model_path)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+path = 'weight.pt'
+torch.save(model.state_dict(), path)
