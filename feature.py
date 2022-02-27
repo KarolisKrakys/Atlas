@@ -1,6 +1,6 @@
 import cv2 as cv
 import numpy as np
-TRAINING_COUNT = 100
+TRAINING_COUNT = 3000
 dirs = ['soil', 'surface', 'temperature', 'total']
 
 def process_label(path,i ):

@@ -1,3 +1,4 @@
+from re import A
 from matplotlib import transforms
 from spacy import load
 import torch
@@ -5,21 +6,25 @@ from torch.utils.data.dataset import Dataset
 from torch.utils.data import DataLoader
 import os
 import numpy as np
-
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
 class featureDataset(Dataset):
+    def __init__(self):
+        self.sscaler = StandardScaler()
+        self.mmscaler = MinMaxScaler()
 
     def __getitem__(self, index):
         with open(f'features/{index}.npy', 'rb') as f:
-            ft = torch.tensor(np.load(f))
+            data = np.load(f)
+            data = np.expand_dims(data, axis=1)
+            data = self.sscaler.fit_transform(data)
+            data = self.mmscaler.fit_transform(data)
+            data = torch.tensor(data)
         with open(f'gtnp/{index}.npy', 'rb') as n:
-            gt = torch.tensor(np.load(n))
-        return(ft, gt)
+            label = torch.tensor(np.load(n))
+        return data.flatten(), label 
 
     def __len__(self):
         return len(os.listdir('features'))
 
-dataset = featureDataset()
-loader = DataLoader(dataset, batch_size=16)
-
-for batch_nxd, sample in enumerate(loader):
-    print(sample)
+# dataset = featureDataset()
+# loader = DataLoader(dataset, batch_size=16)
