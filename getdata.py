@@ -2,6 +2,7 @@ import ee
 import urllib.request
 from PIL import Image
 import numpy as np
+import requests
 
 ee.Initialize()
 era5 = ee.ImageCollection('ECMWF/ERA5_LAND/MONTHLY')
@@ -18,7 +19,7 @@ TRAINING_COUNT = 10000
 DIMENSIONS = 512
 LONGITUDE =[(-75, -45), (-125, -75), (-15, 45), (0, 135), (120, 150)]
 LATITUDE = [(-45,10), (15, 55), (-30, 40),(15, 60),(-35, -15)]
-BUFFER = 10
+BUFFER = 100
 era5_img = era5.mean()
 
 
@@ -40,8 +41,9 @@ for count in range(TRAINING_COUNT):
     }
 
     gt_url = crop_map.getThumbUrl(gt_info)
-    urllib.request.urlretrieve(gt_url, f'gt/{count}.png')
-
+    r = requests.get(gt_url)
+    with open(f'gt_url/{count}.png', 'wb') as f:
+        f.write(r.content)
 
     for i, band in enumerate(bands):
         img_info = {
@@ -56,6 +58,7 @@ for count in range(TRAINING_COUNT):
         }
         url = era5_img.getThumbUrl(img_info)
         folder_dir = band.split('_')[0]
-        urllib.request.urlretrieve(url, f'{folder_dir}/{count}.png')
+        r = requests.get(url)
+        with open(f'url/{count}.png', 'wb') as f:
+            f.write(r.content)
 
-    
