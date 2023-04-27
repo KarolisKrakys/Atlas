@@ -7,7 +7,7 @@ from torchvision import datasets, transforms
 from dataset import featureDataset
 import matplotlib.pyplot as plt
 
-
+# Pytorch model for project 
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 BATCH_SIZE = 60
